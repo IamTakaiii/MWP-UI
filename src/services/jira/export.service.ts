@@ -72,10 +72,12 @@ class ExportService {
   /**
    * Export monthly report to Excel
    */
-  async exportMonthlyReport(startDate: string, endDate: string): Promise<Blob> {
+  async exportMonthlyReport(startDate: string, endDate: string, customFields?: string[], customFieldFilters?: Record<string, string>): Promise<Blob> {
     return this.exportToExcel("/api/v1/worklog/export/monthly-report", {
       startDate,
       endDate,
+      ...(customFields?.length && { customFields }),
+      ...(customFieldFilters && Object.values(customFieldFilters).some((v) => v.trim()) && { customFieldFilters }),
     });
   }
 
@@ -86,11 +88,15 @@ class ExportService {
     projectKey: string,
     startDate: string,
     endDate: string,
+    customFields?: string[],
+    customFieldFilters?: Record<string, string>,
   ): Promise<Blob> {
     return this.exportToExcel("/api/v1/worklog/export/monthly-report-by-project", {
       projectKey,
       startDate,
       endDate,
+      ...(customFields?.length && { customFields }),
+      ...(customFieldFilters && Object.values(customFieldFilters).some((v) => v.trim()) && { customFieldFilters }),
     });
   }
 
@@ -101,11 +107,15 @@ class ExportService {
     boardId: number,
     startDate: string,
     endDate: string,
+    customFields?: string[],
+    customFieldFilters?: Record<string, string>,
   ): Promise<Blob> {
     return this.exportToExcel("/api/v1/worklog/export/monthly-report-by-board", {
       boardId,
       startDate,
       endDate,
+      ...(customFields?.length && { customFields }),
+      ...(customFieldFilters && Object.values(customFieldFilters).some((v) => v.trim()) && { customFieldFilters }),
     });
   }
 }

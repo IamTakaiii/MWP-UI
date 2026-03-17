@@ -12,6 +12,16 @@ interface ChangelogEntry {
 
 const CHANGELOG: ChangelogEntry[] = [
   {
+    version: "1.5.0",
+    date: "18 มี.ค. 2569",
+    changes: [
+      {
+        type: "feature",
+        description: "เพิ่มการ add custom field ในหน้า report และ การ filter by custom field",
+      }
+    ]
+  },
+  {
     version: "1.4.0",
     date: "6 ก.พ. 2569",
     changes: [

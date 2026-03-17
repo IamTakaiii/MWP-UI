@@ -12,6 +12,7 @@ import type {
   MonthlyReportResponse,
   ProjectResponse,
   BoardResponse,
+  JiraField,
 } from "./jira.types";
 
 /**
@@ -46,15 +47,24 @@ class ReportService extends ApiClient {
   }
 
   /**
+   * Fetch available Jira custom fields
+   */
+  async getFields(): Promise<JiraField[]> {
+    return this.get<JiraField[]>("/api/v1/worklog/fields");
+  }
+
+  /**
    * Fetch monthly report
    */
   async getMonthlyReport(
     startDate: string,
     endDate: string,
+    customFields?: string[],
   ): Promise<MonthlyReportResponse> {
     return this.post<MonthlyReportResponse>("/api/v1/worklog/monthly-report", {
       startDate,
       endDate,
+      ...(customFields?.length && { customFields }),
     });
   }
 
@@ -65,6 +75,7 @@ class ReportService extends ApiClient {
     projectKey: string,
     startDate: string,
     endDate: string,
+    customFields?: string[],
   ): Promise<MonthlyReportResponse> {
     return this.post<MonthlyReportResponse>(
       "/api/v1/worklog/monthly-report-by-project",
@@ -72,6 +83,7 @@ class ReportService extends ApiClient {
         projectKey,
         startDate,
         endDate,
+        ...(customFields?.length && { customFields }),
       },
     );
   }
@@ -83,6 +95,7 @@ class ReportService extends ApiClient {
     boardId: number,
     startDate: string,
     endDate: string,
+    customFields?: string[],
   ): Promise<MonthlyReportResponse> {
     return this.post<MonthlyReportResponse>(
       "/api/v1/worklog/monthly-report-by-board",
@@ -90,6 +103,7 @@ class ReportService extends ApiClient {
         boardId,
         startDate,
         endDate,
+        ...(customFields?.length && { customFields }),
       },
     );
   }

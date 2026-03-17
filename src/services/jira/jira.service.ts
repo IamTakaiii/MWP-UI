@@ -28,6 +28,7 @@ import type {
   MonthlyReportResponse,
   ProjectResponse,
   BoardResponse,
+  JiraField,
   WorklogTrackingCheckResponse,
   WorklogTrackingSummaryResponse,
   WorklogTrackingFailedResponse,
@@ -97,27 +98,34 @@ class JiraService extends ApiClient {
     return reportService.getActiveEpics(startDate, endDate);
   }
 
+  async fetchFields(): Promise<JiraField[]> {
+    return reportService.getFields();
+  }
+
   async fetchMonthlyReport(
     startDate: string,
     endDate: string,
+    customFields?: string[],
   ): Promise<MonthlyReportResponse> {
-    return reportService.getMonthlyReport(startDate, endDate);
+    return reportService.getMonthlyReport(startDate, endDate, customFields);
   }
 
   async fetchMonthlyReportByProject(
     projectKey: string,
     startDate: string,
     endDate: string,
+    customFields?: string[],
   ): Promise<MonthlyReportResponse> {
-    return reportService.getMonthlyReportByProject(projectKey, startDate, endDate);
+    return reportService.getMonthlyReportByProject(projectKey, startDate, endDate, customFields);
   }
 
   async fetchMonthlyReportByBoard(
     boardId: number,
     startDate: string,
     endDate: string,
+    customFields?: string[],
   ): Promise<MonthlyReportResponse> {
-    return reportService.getMonthlyReportByBoard(boardId, startDate, endDate);
+    return reportService.getMonthlyReportByBoard(boardId, startDate, endDate, customFields);
   }
 
   async fetchMyProjects(): Promise<ProjectResponse[]> {
@@ -144,24 +152,28 @@ class JiraService extends ApiClient {
     return exportService.exportActiveEpics(startDate, endDate);
   }
 
-  async exportMonthlyReport(startDate: string, endDate: string): Promise<Blob> {
-    return exportService.exportMonthlyReport(startDate, endDate);
+  async exportMonthlyReport(startDate: string, endDate: string, customFields?: string[], customFieldFilters?: Record<string, string>): Promise<Blob> {
+    return exportService.exportMonthlyReport(startDate, endDate, customFields, customFieldFilters);
   }
 
   async exportMonthlyReportByProject(
     projectKey: string,
     startDate: string,
     endDate: string,
+    customFields?: string[],
+    customFieldFilters?: Record<string, string>,
   ): Promise<Blob> {
-    return exportService.exportMonthlyReportByProject(projectKey, startDate, endDate);
+    return exportService.exportMonthlyReportByProject(projectKey, startDate, endDate, customFields, customFieldFilters);
   }
 
   async exportMonthlyReportByBoard(
     boardId: number,
     startDate: string,
     endDate: string,
+    customFields?: string[],
+    customFieldFilters?: Record<string, string>,
   ): Promise<Blob> {
-    return exportService.exportMonthlyReportByBoard(boardId, startDate, endDate);
+    return exportService.exportMonthlyReportByBoard(boardId, startDate, endDate, customFields, customFieldFilters);
   }
 
   // ============================================

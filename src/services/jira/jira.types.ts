@@ -118,6 +118,7 @@ export interface MonthlyUserEpicWorklog {
 export interface MonthlyEpicReport {
   epicKey: string;
   epicSummary: string;
+  customFields?: Record<string, string | null>;
   totalTimeSeconds: number;
   users: MonthlyUserEpicWorklog[];
 }
@@ -204,6 +205,20 @@ export interface BoardResponse {
   id: number;
   name: string;
   projectKey?: string;
+}
+
+// ============================================
+// Jira Fields
+// ============================================
+
+export interface JiraField {
+  id: string;
+  name: string;
+  custom: boolean;
+  schema?: {
+    type?: string;
+    custom?: string;
+  };
 }
 
 // ============================================

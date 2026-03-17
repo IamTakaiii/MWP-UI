@@ -19,6 +19,7 @@ import type {
   BoardResponse,
   MonthlyReportResponse,
   MonthlyEpicReport,
+  JiraField,
 } from "@/services/jira/jira.types";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import {
@@ -34,6 +35,8 @@ import {
   Layers,
   User,
   FolderKanban,
+  Settings2,
+  Tag,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -166,6 +169,21 @@ function MonthlyEpicCard({
             <p className="text-sm text-muted-foreground truncate max-w-[400px]">
               {epic.epicSummary}
             </p>
+            {epic.customFields && Object.keys(epic.customFields).length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-1.5">
+                {Object.entries(epic.customFields).map(([name, value]) => (
+                  <span
+                    key={name}
+                    className="inline-flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-md bg-white/5 border border-white/10"
+                    title={name}
+                  >
+                    <Tag className="w-3 h-3 text-muted-foreground" />
+                    <span className="text-muted-foreground">{name}:</span>
+                    <span className="text-foreground font-medium">{value || "-"}</span>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-6 shrink-0">
@@ -346,6 +364,20 @@ function MonthlyReportTab() {
   const [loadingReport, setLoadingReport] = useState(false);
   const [jiraUrl, setJiraUrl] = useState("");
 
+  // Custom fields
+  const [availableFields, setAvailableFields] = useState<JiraField[]>([]);
+  const [selectedFieldIds, setSelectedFieldIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem("epic-report-custom-fields");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [loadingFields, setLoadingFields] = useState(false);
+  const [showFieldPicker, setShowFieldPicker] = useState(false);
+  const [fieldSearch, setFieldSearch] = useState("");
+
   // Save selections to localStorage
   useEffect(() => {
     localStorage.setItem("epic-report-mode", mode);
@@ -359,6 +391,11 @@ function MonthlyReportTab() {
   useEffect(() => {
     if (boardId) localStorage.setItem("epic-report-board", boardId);
   }, [boardId]);
+
+  // Save custom fields selection
+  useEffect(() => {
+    localStorage.setItem("epic-report-custom-fields", JSON.stringify(selectedFieldIds));
+  }, [selectedFieldIds]);
 
   // Reset report when mode or filter changes
   const handleModeChange = (newMode: "my" | "all") => {
@@ -396,6 +433,39 @@ function MonthlyReportTab() {
     fetchData();
   }, []);
 
+  const handleLoadFields = async () => {
+    if (availableFields.length > 0) {
+      setShowFieldPicker(!showFieldPicker);
+      return;
+    }
+    setLoadingFields(true);
+    try {
+      const fields = await jiraService.fetchFields();
+      setAvailableFields(fields);
+      setShowFieldPicker(true);
+    } catch {
+      toast.error("ไม่สามารถโหลด custom fields ได้");
+    } finally {
+      setLoadingFields(false);
+    }
+  };
+
+  const toggleField = (fieldId: string) => {
+    setSelectedFieldIds((prev) =>
+      prev.includes(fieldId) ? prev.filter((id) => id !== fieldId) : [...prev, fieldId],
+    );
+  };
+
+  const filteredFields = useMemo(
+    () =>
+      availableFields.filter(
+        (f) =>
+          f.name.toLowerCase().includes(fieldSearch.toLowerCase()) ||
+          f.id.toLowerCase().includes(fieldSearch.toLowerCase()),
+      ),
+    [availableFields, fieldSearch],
+  );
+
   const handlePreview = async () => {
     setLoadingReport(true);
     setError("");
@@ -408,7 +478,7 @@ function MonthlyReportTab() {
       let report: MonthlyReportResponse;
 
       if (mode === "my") {
-        report = await jiraService.fetchMonthlyReport(startDate, endDate);
+        report = await jiraService.fetchMonthlyReport(startDate, endDate, selectedFieldIds);
       } else if (filterType === "board") {
         if (!boardId) {
           toast.error("กรุณาเลือก Board");
@@ -425,6 +495,7 @@ function MonthlyReportTab() {
           Number(boardId),
           startDate,
           endDate,
+          selectedFieldIds,
         );
       } else {
         if (!projectKey) {
@@ -436,6 +507,7 @@ function MonthlyReportTab() {
           projectKey,
           startDate,
           endDate,
+          selectedFieldIds,
         );
       }
 
@@ -458,7 +530,7 @@ function MonthlyReportTab() {
       let filename: string;
 
       if (mode === "my") {
-        blob = await jiraService.exportMonthlyReport(startDate, endDate);
+        blob = await jiraService.exportMonthlyReport(startDate, endDate, selectedFieldIds, customFieldFilters);
         filename = `my-epics-report-${month}.xlsx`;
       } else if (filterType === "board") {
         if (!boardId) {
@@ -470,6 +542,8 @@ function MonthlyReportTab() {
           Number(boardId),
           startDate,
           endDate,
+          selectedFieldIds,
+          customFieldFilters,
         );
         const selectedBoard = boards.find((b) => b.id === Number(boardId));
         filename = `board-report-${selectedBoard?.name || boardId}-${month}.xlsx`;
@@ -483,6 +557,8 @@ function MonthlyReportTab() {
           projectKey,
           startDate,
           endDate,
+          selectedFieldIds,
+          customFieldFilters,
         );
         filename = `project-report-${projectKey}-${month}.xlsx`;
       }
@@ -498,11 +574,48 @@ function MonthlyReportTab() {
 
   const canAction =
     mode === "my" || (filterType === "board" ? !!boardId : !!projectKey);
-  const uniqueContributors = monthlyReport
-    ? new Set(
-        monthlyReport.epics.flatMap((e) => e.users.map((u) => u.accountId)),
-      ).size
-    : 0;
+
+  // Custom field filters (field name -> filter text)
+  const [customFieldFilters, setCustomFieldFilters] = useState<Record<string, string>>({});
+
+  // Get all custom field names from the report
+  const reportCustomFieldNames = useMemo(() => {
+    if (!monthlyReport) return [];
+    const names = new Set<string>();
+    for (const epic of monthlyReport.epics) {
+      if (epic.customFields) {
+        for (const name of Object.keys(epic.customFields)) {
+          names.add(name);
+        }
+      }
+    }
+    return Array.from(names);
+  }, [monthlyReport]);
+
+  // Filter epics by custom field values
+  const filteredEpics = useMemo(() => {
+    if (!monthlyReport) return [];
+    const activeFilters = Object.entries(customFieldFilters).filter(([, v]) => v.trim() !== "");
+    if (activeFilters.length === 0) return monthlyReport.epics;
+    return monthlyReport.epics.filter((epic) => {
+      if (!epic.customFields) return false;
+      return activeFilters.every(([fieldName, filterValue]) => {
+        const val = epic.customFields?.[fieldName];
+        if (val == null) return false;
+        return val.toLowerCase().includes(filterValue.toLowerCase());
+      });
+    });
+  }, [monthlyReport, customFieldFilters]);
+
+  const filteredTotalSeconds = useMemo(
+    () => filteredEpics.reduce((sum, e) => sum + e.totalTimeSeconds, 0),
+    [filteredEpics],
+  );
+
+  const uniqueContributors = useMemo(
+    () => new Set(filteredEpics.flatMap((e) => e.users.map((u) => u.accountId))).size,
+    [filteredEpics],
+  );
 
   // Prepare options for SearchableSelect
   const boardOptions = useMemo(
@@ -680,6 +793,28 @@ function MonthlyReportTab() {
                 className="w-[180px] bg-black/30 border-white/10"
               />
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLoadFields}
+              disabled={loadingFields}
+              className={cn(
+                "gap-2 border-white/20",
+                selectedFieldIds.length > 0 && "border-amber-500/50 text-amber-400",
+              )}
+            >
+              {loadingFields ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Settings2 className="h-4 w-4" />
+              )}
+              Custom Fields
+              {selectedFieldIds.length > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 text-xs rounded-full bg-amber-500/20">
+                  {selectedFieldIds.length}
+                </span>
+              )}
+            </Button>
             <div className="flex-1" />
             <Button
               onClick={handlePreview}
@@ -712,6 +847,78 @@ function MonthlyReportTab() {
               {exporting ? "กำลัง Export..." : "Export Excel"}
             </Button>
           </div>
+
+          {/* Custom Fields Picker */}
+          {showFieldPicker && (
+            <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-3 animate-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Settings2 className="w-4 h-4 text-amber-400" />
+                  <span className="text-sm font-medium text-amber-400">
+                    เลือก Custom Fields ที่ต้องการแสดงใน Epic
+                  </span>
+                </div>
+                {selectedFieldIds.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedFieldIds([])}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    ล้างทั้งหมด
+                  </Button>
+                )}
+              </div>
+              <Input
+                placeholder="ค้นหา field..."
+                value={fieldSearch}
+                onChange={(e) => setFieldSearch(e.target.value)}
+                className="bg-black/30 border-white/10 h-8 text-sm"
+              />
+              <div className="max-h-[200px] overflow-y-auto space-y-1 pr-1">
+                {filteredFields.map((field) => {
+                  const isSelected = selectedFieldIds.includes(field.id);
+                  return (
+                    <button
+                      key={field.id}
+                      type="button"
+                      onClick={() => toggleField(field.id)}
+                      className={cn(
+                        "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left text-sm transition-colors",
+                        isSelected
+                          ? "bg-amber-500/10 border border-amber-500/30"
+                          : "hover:bg-white/5 border border-transparent",
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
+                          isSelected
+                            ? "bg-amber-500 border-amber-500"
+                            : "border-white/30",
+                        )}
+                      >
+                        {isSelected && (
+                          <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="truncate block">{field.name}</span>
+                        <span className="text-xs text-muted-foreground font-mono">{field.id}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+                {filteredFields.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    ไม่พบ field ที่ค้นหา
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -724,18 +931,58 @@ function MonthlyReportTab() {
       {/* Report Preview */}
       {monthlyReport && (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {/* Custom Field Filters */}
+          {reportCustomFieldNames.length > 0 && (
+            <div className="p-4 rounded-2xl bg-card/30 border border-white/10 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium flex items-center gap-2">
+                  <Search className="w-4 h-4 text-muted-foreground" />
+                  Filter by Custom Fields
+                </span>
+                {Object.values(customFieldFilters).some((v) => v.trim()) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCustomFieldFilters({})}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    ล้าง filter
+                  </Button>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {reportCustomFieldNames.map((name) => (
+                  <div key={name} className="flex flex-col gap-1">
+                    <label className="text-xs text-muted-foreground">{name}</label>
+                    <Input
+                      placeholder={`filter ${name}...`}
+                      value={customFieldFilters[name] || ""}
+                      onChange={(e) =>
+                        setCustomFieldFilters((prev) => ({
+                          ...prev,
+                          [name]: e.target.value,
+                        }))
+                      }
+                      className="w-[200px] h-8 text-sm bg-black/30 border-white/10"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4">
             <StatCard
               icon={Layers}
               label="Epics"
-              value={monthlyReport.epics.length}
+              value={filteredEpics.length}
               color="violet"
             />
             <StatCard
               icon={Clock}
               label="Total Time"
-              value={formatSeconds(monthlyReport.totalTimeSeconds)}
+              value={formatSeconds(filteredTotalSeconds)}
               color="emerald"
             />
             <StatCard
@@ -747,13 +994,18 @@ function MonthlyReportTab() {
           </div>
 
           {/* Epics List */}
-          {monthlyReport.epics.length > 0 ? (
+          {filteredEpics.length > 0 ? (
             <div className="space-y-3">
               <h3 className="text-lg font-semibold flex items-center gap-2">
                 <Layers className="w-5 h-5 text-primary" />
-                รายละเอียด Epics ({monthlyReport.epics.length})
+                รายละเอียด Epics ({filteredEpics.length})
+                {filteredEpics.length !== monthlyReport.epics.length && (
+                  <span className="text-sm font-normal text-muted-foreground">
+                    / {monthlyReport.epics.length} ทั้งหมด
+                  </span>
+                )}
               </h3>
-              {monthlyReport.epics.map((epic, idx) => (
+              {filteredEpics.map((epic, idx) => (
                 <MonthlyEpicCard
                   key={epic.epicKey}
                   epic={epic}
