@@ -9,6 +9,7 @@ import {
   Trash2,
   Copy,
   CopyPlus,
+  GitBranch,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -139,6 +140,25 @@ export function DayCard({
       {/* Expanded Content */}
       {isExpanded && (
         <div className="p-4 border-t border-white/10">
+          {/* Subtask Warning Banner */}
+          {(() => {
+            const subtaskCount = day.worklogs.filter((w) => w.isSubtask).length;
+            if (subtaskCount === 0) return null;
+            return (
+              <div className="mb-3 flex items-center gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm text-amber-300">
+                <GitBranch className="h-4 w-4 shrink-0 text-amber-400" />
+                <span>
+                  มี{" "}
+                  <span className="font-semibold text-amber-200">
+                    {subtaskCount} รายการ
+                  </span>{" "}
+                  ที่ลงเวลาใน{" "}
+                  <span className="font-semibold text-amber-200">Subtask</span>{" "}
+                  — ตรวจสอบว่าควรลงที่ Parent task แทน
+                </span>
+              </div>
+            );
+          })()}
           <Table>
             <TableHeader>
               <TableRow className="border-white/10 hover:bg-transparent">
@@ -153,21 +173,33 @@ export function DayCard({
               {day.worklogs.map((worklog) => (
                 <TableRow
                   key={worklog.id}
-                  className="border-white/10 hover:bg-white/5 relative"
+                  className={cn(
+                    "border-white/10 hover:bg-white/5 relative",
+                    worklog.isSubtask &&
+                      "border-l-2 border-l-amber-400/70 bg-amber-500/5 hover:bg-amber-500/10",
+                  )}
                   onContextMenu={(e) => {
                     setContextMenuWorklog(worklog);
                     contextMenu.openMenu(e);
                   }}
                 >
                   <TableCell className="font-mono font-semibold text-[#4C9AFF]">
-                    <a
-                      href={`${jiraUrl}/browse/${worklog.issueKey}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hover:underline"
-                    >
-                      {worklog.issueKey}
-                    </a>
+                    <div className="flex flex-col gap-1">
+                      <a
+                        href={`${jiraUrl}/browse/${worklog.issueKey}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:underline"
+                      >
+                        {worklog.issueKey}
+                      </a>
+                      {worklog.isSubtask && (
+                        <span className="inline-flex items-center gap-1 w-fit rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          <GitBranch className="h-2.5 w-2.5" />
+                          Subtask
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="truncate max-w-[200px]">
                     {worklog.issueSummary}

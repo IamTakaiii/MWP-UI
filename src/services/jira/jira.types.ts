@@ -75,6 +75,8 @@ export interface WorklogEntry {
   comment: string;
   created: string;
   updated: string;
+  issueType?: string;
+  isSubtask?: boolean;
 }
 
 export interface WorklogHistoryResponse {

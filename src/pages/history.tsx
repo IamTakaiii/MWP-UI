@@ -18,6 +18,7 @@ import {
   CopyPlus,
   Download,
   ClipboardList,
+  GitBranch,
 } from "lucide-react";
 import {
   format,
@@ -1047,12 +1048,41 @@ ${taskLines}
 
             {/* Worklog Table */}
             <div className="p-4 md:p-5">
+              {/* Subtask Warning Banner */}
+              {(() => {
+                const subtaskCount = currentDay.worklogs.filter(
+                  (w) => w.isSubtask,
+                ).length;
+                if (subtaskCount === 0) return null;
+                return (
+                  <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                    <GitBranch className="h-4 w-4 shrink-0 text-amber-400" />
+                    <span>
+                      มี{" "}
+                      <span className="font-semibold text-amber-200">
+                        {subtaskCount} รายการ
+                      </span>{" "}
+                      ที่ลงเวลาใน{" "}
+                      <span className="font-semibold text-amber-200">
+                        Subtask
+                      </span>{" "}
+                      — ตรวจสอบว่าควรลงที่ Parent task แทน
+                    </span>
+                  </div>
+                );
+              })()}
+
               {/* Mobile Card Layout */}
               <div className="md:hidden space-y-3">
                 {currentDay.worklogs.map((worklog) => (
                   <div
                     key={worklog.id}
-                    className="bg-white/5 rounded-xl p-4 border border-white/10"
+                    className={cn(
+                      "rounded-xl p-4 border",
+                      worklog.isSubtask
+                        ? "bg-amber-500/5 border-l-2 border-amber-400/60 border-white/10"
+                        : "bg-white/5 border-white/10",
+                    )}
                     onContextMenu={(e) => {
                       setContextMenuWorklog(worklog);
                       contextMenu.openMenu(e);
@@ -1060,15 +1090,25 @@ ${taskLines}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <a
-                          href={`${jiraUrl}/browse/${worklog.issueKey}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-mono font-semibold text-[#4C9AFF] hover:underline"
-                        >
-                          {worklog.issueKey}
-                        </a>
-                        <p className="text-sm mt-1 truncate">{worklog.issueSummary}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <a
+                            href={`${jiraUrl}/browse/${worklog.issueKey}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-mono font-semibold text-[#4C9AFF] hover:underline"
+                          >
+                            {worklog.issueKey}
+                          </a>
+                          {worklog.isSubtask && (
+                            <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                              <GitBranch className="h-2.5 w-2.5" />
+                              Subtask
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm mt-1 truncate">
+                          {worklog.issueSummary}
+                        </p>
                         {worklog.comment && (
                           <p className="text-xs text-muted-foreground mt-1 truncate">
                             {worklog.comment}
@@ -1111,7 +1151,7 @@ ${taskLines}
                 <Table>
                   <TableHeader>
                     <TableRow className="border-white/10 hover:bg-transparent">
-                      <TableHead className="w-[100px]">Issue Key</TableHead>
+                      <TableHead className="w-[120px]">Issue Key</TableHead>
                       <TableHead>Task</TableHead>
                       <TableHead>Comment</TableHead>
                       <TableHead className="w-[130px]">From - To</TableHead>
@@ -1125,21 +1165,33 @@ ${taskLines}
                     {currentDay.worklogs.map((worklog) => (
                       <TableRow
                         key={worklog.id}
-                        className="border-white/10 hover:bg-white/5 relative"
+                        className={cn(
+                          "border-white/10 hover:bg-white/5 relative",
+                          worklog.isSubtask &&
+                            "border-l-2 border-l-amber-400/70 bg-amber-500/5 hover:bg-amber-500/10",
+                        )}
                         onContextMenu={(e) => {
                           setContextMenuWorklog(worklog);
                           contextMenu.openMenu(e);
                         }}
                       >
                         <TableCell className="font-mono font-semibold text-[#4C9AFF]">
-                          <a
-                            href={`${jiraUrl}/browse/${worklog.issueKey}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:underline"
-                          >
-                            {worklog.issueKey}
-                          </a>
+                          <div className="flex flex-col gap-1">
+                            <a
+                              href={`${jiraUrl}/browse/${worklog.issueKey}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:underline"
+                            >
+                              {worklog.issueKey}
+                            </a>
+                            {worklog.isSubtask && (
+                              <span className="inline-flex items-center gap-1 w-fit rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                <GitBranch className="h-2.5 w-2.5" />
+                                Subtask
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="max-w-[200px] truncate">
                           {worklog.issueSummary}
