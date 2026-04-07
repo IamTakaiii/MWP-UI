@@ -162,14 +162,19 @@ export class ApiClient {
       // Handle error responses
       if (!response.ok) {
         const errorResult = result as {
-          error?: string;
-          details?: string;
-          message?: string;
+          error?: unknown;
+          details?: unknown;
+          message?: unknown;
+        };
+        const getMessage = (v: unknown): string | undefined => {
+          if (typeof v === "string") return v || undefined;
+          if (v !== null && v !== undefined) return JSON.stringify(v);
+          return undefined;
         };
         const message =
-          errorResult.details ||
-          errorResult.error ||
-          errorResult.message ||
+          getMessage(errorResult.details) ||
+          getMessage(errorResult.error) ||
+          getMessage(errorResult.message) ||
           `HTTP ${response.status}`;
         throw new ApiError(message, response.status, "API_ERROR", result);
       }
