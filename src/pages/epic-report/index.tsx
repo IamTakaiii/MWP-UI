@@ -535,7 +535,10 @@ function MonthlyReportTab() {
       let blob: Blob;
       let filename: string;
 
-      if (mode === "my") {
+      if (epicSearch.trim()) {
+        blob = await jiraService.exportMonthlyReportByEpic(epicSearch.trim(), startDate, endDate);
+        filename = `epic-report-${epicSearch.trim()}-${month}.xlsx`;
+      } else if (mode === "my") {
         blob = await jiraService.exportMonthlyReport(startDate, endDate, selectedFieldIds, customFieldFilters);
         filename = `my-epics-report-${month}.xlsx`;
       } else if (filterType === "board") {

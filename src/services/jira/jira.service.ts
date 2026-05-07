@@ -164,6 +164,10 @@ class JiraService extends ApiClient {
     return exportService.exportMonthlyReport(startDate, endDate, customFields, customFieldFilters);
   }
 
+  async exportMonthlyReportByEpic(epicKey: string, startDate: string, endDate: string): Promise<Blob> {
+    return exportService.exportMonthlyReportByEpic(epicKey, startDate, endDate);
+  }
+
   async exportMonthlyReportByProject(
     projectKey: string,
     startDate: string,

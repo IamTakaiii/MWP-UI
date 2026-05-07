@@ -82,6 +82,17 @@ class ExportService {
   }
 
   /**
+   * Export monthly report for a specific epic within a date range to Excel
+   */
+  async exportMonthlyReportByEpic(epicKey: string, startDate: string, endDate: string): Promise<Blob> {
+    return this.exportToExcel("/api/v1/worklog/export/monthly-report-by-epic", {
+      epicKey,
+      startDate,
+      endDate,
+    });
+  }
+
+  /**
    * Export monthly report by project to Excel
    */
   async exportMonthlyReportByProject(
