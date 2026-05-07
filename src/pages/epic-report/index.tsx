@@ -37,6 +37,7 @@ import {
   FolderKanban,
   Settings2,
   Tag,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -378,6 +379,9 @@ function MonthlyReportTab() {
   const [showFieldPicker, setShowFieldPicker] = useState(false);
   const [fieldSearch, setFieldSearch] = useState("");
 
+  // Epic key search
+  const [epicSearch, setEpicSearch] = useState("");
+
   // Save selections to localStorage
   useEffect(() => {
     localStorage.setItem("epic-report-mode", mode);
@@ -477,7 +481,9 @@ function MonthlyReportTab() {
 
       let report: MonthlyReportResponse;
 
-      if (mode === "my") {
+      if (epicSearch.trim()) {
+        report = await jiraService.fetchMonthlyReportByEpic(epicSearch.trim(), startDate, endDate);
+      } else if (mode === "my") {
         report = await jiraService.fetchMonthlyReport(startDate, endDate, selectedFieldIds);
       } else if (filterType === "board") {
         if (!boardId) {
@@ -573,7 +579,9 @@ function MonthlyReportTab() {
   };
 
   const canAction =
-    mode === "my" || (filterType === "board" ? !!boardId : !!projectKey);
+    !!epicSearch.trim() ||
+    mode === "my" ||
+    (filterType === "board" ? !!boardId : !!projectKey);
 
   // Custom field filters (field name -> filter text)
   const [customFieldFilters, setCustomFieldFilters] = useState<Record<string, string>>({});
@@ -644,7 +652,7 @@ function MonthlyReportTab() {
       <div className="p-6 rounded-2xl bg-gradient-to-br from-card/80 to-card/40 border border-white/10 backdrop-blur-sm">
         <div className="space-y-5">
           {/* Mode Selection */}
-          <div className="grid grid-cols-2 gap-3">
+          {!epicSearch.trim() && <div className="grid grid-cols-2 gap-3">
             <button
               onClick={() => handleModeChange("my")}
               className={cn(
@@ -725,10 +733,48 @@ function MonthlyReportTab() {
                 </div>
               </div>
             </button>
+          </div>}
+
+          {/* Epic Key Search */}
+          <div className="p-4 rounded-xl bg-blue-500/5 border border-blue-500/20 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-medium text-blue-400">
+              <Search className="w-4 h-4" />
+              ค้นหา Epic Key โดยตรง
+              {epicSearch.trim() && (
+                <span className="ml-auto text-xs text-muted-foreground font-normal">
+                  (ซ่อน mode / board / project เมื่อมีค่า)
+                </span>
+              )}
+            </div>
+            <div className="relative">
+              <Input
+                placeholder="เช่น PROJ-123"
+                value={epicSearch}
+                onChange={(e) => {
+                  setEpicSearch(e.target.value);
+                  setMonthlyReport(null);
+                  setError("");
+                }}
+                className="bg-black/30 border-white/10 pr-8"
+              />
+              {epicSearch && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEpicSearch("");
+                    setMonthlyReport(null);
+                    setError("");
+                  }}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* All Epics Options */}
-          {mode === "all" && (
+          {!epicSearch.trim() && mode === "all" && (
             <div className="p-4 rounded-xl bg-violet-500/5 border border-violet-500/20 space-y-3 animate-in slide-in-from-top-2 duration-300">
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1 bg-black/30 rounded-lg p-1">

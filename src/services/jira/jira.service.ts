@@ -128,6 +128,14 @@ class JiraService extends ApiClient {
     return reportService.getMonthlyReportByBoard(boardId, startDate, endDate, customFields);
   }
 
+  async fetchMonthlyReportByEpic(
+    epicKey: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<MonthlyReportResponse> {
+    return reportService.getMonthlyReportByEpic(epicKey, startDate, endDate);
+  }
+
   async fetchMyProjects(): Promise<ProjectResponse[]> {
     return reportService.getMyProjects();
   }

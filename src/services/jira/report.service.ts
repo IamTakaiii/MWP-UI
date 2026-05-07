@@ -89,6 +89,21 @@ class ReportService extends ApiClient {
   }
 
   /**
+   * Fetch monthly report for a specific epic within a date range
+   */
+  async getMonthlyReportByEpic(
+    epicKey: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<MonthlyReportResponse> {
+    return this.post<MonthlyReportResponse>("/api/v1/worklog/monthly-report-by-epic", {
+      epicKey,
+      startDate,
+      endDate,
+    });
+  }
+
+  /**
    * Fetch monthly report by board
    */
   async getMonthlyReportByBoard(
